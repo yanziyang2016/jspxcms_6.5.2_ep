@@ -29,6 +29,7 @@ import com.jspxcms.common.file.FileHandler;
 import com.jspxcms.common.security.CredentialsDigest;
 import com.jspxcms.common.upload.UploadResult;
 import com.jspxcms.common.upload.Uploader;
+import com.jspxcms.common.util.Encodes;
 import com.jspxcms.common.util.JsonMapper;
 import com.jspxcms.common.web.PathResolver;
 import com.jspxcms.common.web.Servlets;
@@ -39,7 +40,9 @@ import com.jspxcms.core.domain.PublishPoint;
 import com.jspxcms.core.domain.Site;
 import com.jspxcms.core.domain.User;
 import com.jspxcms.core.domain.UserDetail;
+import com.jspxcms.core.domain.UserStatus;
 import com.jspxcms.core.service.UserService;
+import com.jspxcms.core.service.UserStatusService;
 import com.jspxcms.core.support.Context;
 import com.jspxcms.core.support.ForeContext;
 import com.jspxcms.core.support.Response;
@@ -61,6 +64,12 @@ public class MemberController {
 	public static final String PASSWORD_TEMPLATE = "sys_member_password.html";
 	public static final String EMAIL_TEMPLATE = "sys_member_email.html";
 
+	private UserStatusService userStatusService;	
+	
+	@Autowired
+	public void setUserStatusService(UserStatusService userStatusService) {
+		this.userStatusService = userStatusService;
+	}
 	/**
 	 * 会员首页
 	 * 
@@ -98,12 +107,15 @@ public class MemberController {
 			Constants.SITE_PREFIX_PATH + "/my.jspx" })
 	public String my(HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
+		logger.info("url------:"+ForeContext.getCurrentUrl(request));
 		Response resp = new Response(request, response, modelMap);
+		
 		User user = Context.getCurrentUser();
+		logger.info("user == null:"+(user == null));
 		if (user == null) {
 			return resp.unauthorized();
 		}
-
+		
 		Site site = Context.getCurrentSite();
 		modelMap.addAttribute("own", true);
 		Map<String, Object> data = modelMap.asMap();
@@ -117,6 +129,7 @@ public class MemberController {
 			HttpServletResponse response, org.springframework.ui.Model modelMap) {
 		Site site = Context.getCurrentSite();
 		Map<String, Object> data = modelMap.asMap();
+		logger.info(request.toString());
 		ForeContext.setData(data, request);
 		return site.getTemplate(PROFILE_TEMPLATE);
 	}
@@ -124,19 +137,35 @@ public class MemberController {
 	@RequestMapping(value = { "/my/profile.jspx",
 			Constants.SITE_PREFIX_PATH + "/my/profile.jspx" }, method = RequestMethod.POST)
 	public String profileSubmit(String gender, Date birthDate, String bio,
-			String comeFrom, String qq, String msn, String weixin,
+			String comeFrom, String qq, String msn, String weixin,String kaihu,
+			String homeAddress, String accountName,String accountNo,String mobile,String realName,
 			HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
 		Response resp = new Response(request, response, modelMap);
 		User user = Context.getCurrentUser();
 		user.setGender(gender);
 		user.setBirthDate(birthDate);
+		user.setMobile(mobile);
+		user.setRealName(realName);
+		logger.info(kaihu+"---"+accountName+"---"+accountNo+"---"+homeAddress+"---"+user.getMemStatus());
+		if(birthDate!=null&&gender!=null&&comeFrom!=null&&bio!=null&&qq!=null&&kaihu!=null&&homeAddress!=null&&accountName!=null&&accountNo!=null
+				&&realName!=null&&mobile!=null&&mobile.length()>0&&realName.length()>0
+				&&gender.length()>0&&comeFrom.length()>0&&bio.length()>0&&qq.length()>0&&kaihu.length()>0
+				&&homeAddress.length()>0&&accountName.length()>0&&accountNo.length()>0){
+			if(user.getMemStatus()==0){
+				user.setMemStatus(3);
+			}
+		}
 		UserDetail detail = user.getDetail();
 		detail.setBio(bio);
 		detail.setComeFrom(comeFrom);
 		detail.setQq(qq);
 		detail.setMsn(msn);
 		detail.setQq(qq);
+		detail.setKaihu(kaihu);
+		detail.setAccountName(accountName);
+		detail.setAccountNo(accountNo);
+		detail.setHomeAddress(homeAddress);
 		userService.update(user, detail);
 		return resp.post();
 	}
@@ -276,6 +305,7 @@ public class MemberController {
 		Site site = Context.getCurrentSite();
 		Map<String, Object> data = modelMap.asMap();
 		ForeContext.setData(data, request);
+		logger.info("password.jspx111---------- " );
 		return site.getTemplate(PASSWORD_TEMPLATE);
 	}
 
@@ -286,6 +316,7 @@ public class MemberController {
 			org.springframework.ui.Model modelMap) {
 		Response resp = new Response(request, response, modelMap);
 		User user = Context.getCurrentUser();
+		logger.info("password.jspx22222222---------- " );
 		if (!credentialsDigest.matches(user.getPassword(), password,
 				user.getSaltBytes())) {
 			return resp.post(501, "member.passwordError");

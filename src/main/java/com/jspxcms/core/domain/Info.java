@@ -58,6 +58,8 @@ import org.htmlparser.tags.ImageTag;
 import org.htmlparser.util.NodeList;
 import org.htmlparser.util.ParserException;
 import org.htmlparser.util.SimpleNodeIterator;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import com.jspxcms.common.file.Files;
 import com.jspxcms.common.util.Reflections;
@@ -72,6 +74,7 @@ import com.jspxcms.core.support.Commentable;
 import com.jspxcms.core.support.Context;
 import com.jspxcms.core.support.Siteable;
 import com.jspxcms.core.support.TitleText;
+import com.jspxcms.core.web.back.InfoController;
 
 /**
  * Info
@@ -84,6 +87,9 @@ import com.jspxcms.core.support.TitleText;
 public class Info implements java.io.Serializable, Anchor, Siteable,
 		Commentable, PageUrlResolver {
 	private static final long serialVersionUID = 1L;
+	
+	private static final Logger logger = LoggerFactory
+			.getLogger(Info.class);
 	/**
 	 * 附件类型
 	 */
@@ -1602,7 +1608,18 @@ public class Info implements java.io.Serializable, Anchor, Siteable,
 	@Transient
 	public String getCustomsValue(String name) {
 		String key = getCustoms().get(name);
+		logger.info("name---"+name);
+		logger.info("key---"+key);
 		return getModel().getCustomOptionValue(name, key);
+	}
+	
+	@Transient
+	public String getCustomsValueNew(String name) {
+		
+		String key = getCustoms().get(name);
+		logger.info("name1---"+name);
+		logger.info("key1---"+key);
+		return key;
 	}
 
 	/**
@@ -1779,9 +1796,24 @@ public class Info implements java.io.Serializable, Anchor, Siteable,
 	private Integer p4;
 	private Integer p5;
 	private Integer p6;
+	
+	private Integer video_id;
+	
+	private Integer product_id;
 
 	private String highlightTitle;
 	private String highlightText;
+	
+	private String stock;
+	
+	@Transient
+	public String getStock() {
+		return stock;
+	}
+
+	public void setStock(String stock) {
+		this.stock = stock;
+	}
 
 	public Info() {
 	}
@@ -2142,6 +2174,26 @@ public class Info implements java.io.Serializable, Anchor, Siteable,
 
 	public void setP6(Integer p6) {
 		this.p6 = p6;
+	}
+	
+	
+	@Column(name = "video_id")
+	public Integer getVideo_id() {
+		return video_id;
+	}
+
+	public void setVideo_id(Integer video_id) {
+		this.video_id = video_id;
+	}
+	
+	
+	@Column(name = "product_id")
+	public Integer getProduct_id() {
+		return product_id;
+	}
+
+	public void setProduct_id(Integer product_id) {
+		this.product_id = product_id;
 	}
 
 	@Transient

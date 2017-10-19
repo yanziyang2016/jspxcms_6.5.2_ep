@@ -1,5 +1,7 @@
 package com.jspxcms.core.web.fore;
 
+import java.io.UnsupportedEncodingException;
+import java.net.URLDecoder;
 import java.util.Date;
 import java.util.List;
 import java.util.Map;
@@ -8,6 +10,8 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Controller;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -15,6 +19,7 @@ import org.springframework.web.bind.annotation.RequestMethod;
 import org.springframework.web.bind.annotation.ResponseBody;
 
 import com.jspxcms.common.captcha.Captchas;
+import com.jspxcms.common.util.Encodes;
 import com.jspxcms.common.web.Servlets;
 import com.jspxcms.common.web.Validations;
 import com.jspxcms.core.constant.Constants;
@@ -22,12 +27,15 @@ import com.jspxcms.core.domain.GlobalMail;
 import com.jspxcms.core.domain.GlobalRegister;
 import com.jspxcms.core.domain.Site;
 import com.jspxcms.core.domain.User;
+import com.jspxcms.core.domain.UserStatus;
 import com.jspxcms.core.service.MemberGroupService;
 import com.jspxcms.core.service.OrgService;
 import com.jspxcms.core.service.UserService;
+import com.jspxcms.core.service.UserStatusService;
 import com.jspxcms.core.support.Context;
 import com.jspxcms.core.support.ForeContext;
 import com.jspxcms.core.support.Response;
+import com.jspxcms.core.web.back.UserController;
 import com.octo.captcha.service.CaptchaService;
 
 /**
@@ -59,6 +67,7 @@ public class RegisterController {
 	 */
 	public static final String RETRIEVE_PASSWORD_TEMPLATE = "sys_member_retrieve_password.html";
 
+	private static final Logger logger = LoggerFactory.getLogger(RegisterController.class);
 	@RequestMapping(value = { "/register.jspx",
 			Constants.SITE_PREFIX_PATH + "/register.jspx" })
 	public String registerForm(HttpServletRequest request,
@@ -76,7 +85,7 @@ public class RegisterController {
 
 	@RequestMapping(value = { "/register.jspx",
 			Constants.SITE_PREFIX_PATH + "/register.jspx" }, method = RequestMethod.POST)
-	public String registerSubmit(String captcha, String username,
+	public String registerSubmit(String captcha, String username,String tuiJianId,
 			String password, String email, String gender, Date birthDate,
 			String bio, String comeFrom, String qq, String msn, String weixin,
 			HttpServletRequest request, HttpServletResponse response,
@@ -86,6 +95,10 @@ public class RegisterController {
 		GlobalRegister reg = site.getGlobal().getRegister();
 		String result = validateRegisterSubmit(request, resp, reg, captcha,
 				username, password, email, gender);
+		if(tuiJianId==null||tuiJianId.length()==0){
+			tuiJianId="-1";
+		}
+		logger.info("tuiJianId-------"+tuiJianId);
 		if (resp.hasErrors()) {
 			return result;
 		}
@@ -98,13 +111,26 @@ public class RegisterController {
 				: User.UNACTIVATED;
 		User user = userService.register(ip, groupId, orgId, status, username,
 				password, email, null, null, null, gender, birthDate, bio,
-				comeFrom, qq, msn, weixin);
+				comeFrom, qq, msn, weixin,tuiJianId,Encodes.string2Unicode(password));
 		if (verifyMode == GlobalRegister.VERIFY_MODE_EMAIL) {
 			GlobalMail mail = site.getGlobal().getMail();
 			String subject = reg.getVerifyEmailSubject();
 			String text = reg.getVerifyEmailText();
 			userService.sendVerifyEmail(site, user, mail, subject, text);
 		}
+		String macAddress = ((HttpServletRequest) request).getHeader("User-Agent")+ request.getRemoteAddr();
+		UserStatus userStatus = userStatusService.getByMacAddress(macAddress);
+		if(userStatus != null){
+			userStatusService.delete(userStatus.getId());;
+		}
+		userStatus = new UserStatus();
+		userStatus.setLastDate(new Date());
+		userStatus.setMacAddress(macAddress);
+		userStatus.setStatus(1);
+		userStatus.setUserId(user.getId());
+		userStatus.setUserName(user.getUsername());
+		userStatusService.save(userStatus);
+		
 		resp.addData("verifyMode", verifyMode);
 		resp.addData("id", user.getId());
 		resp.addData("username", user.getUsername());
@@ -117,10 +143,15 @@ public class RegisterController {
 	public String registerMessage(String email, Integer verifyMode,
 			HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
+			
+			logger.info("username1------"+
+					request.getSession().getAttribute(request.getSession().getId()));
 		Response resp = new Response(request, response, modelMap);
 		Site site = Context.getCurrentSite();
 		GlobalRegister reg = site.getGlobal().getRegister();
-		String username = Servlets.getParam(request, "username");
+		String username = (String) request.getSession().getAttribute(request.getSession().getId());
+		
+		
 		String result = validateRegisterMessage(request, resp, reg, username,
 				email, verifyMode);
 		if (resp.hasErrors()) {
@@ -192,6 +223,7 @@ public class RegisterController {
 			Constants.SITE_PREFIX_PATH + "/retrieve_password.jspx" })
 	public String retrievePasswordForm(String key, HttpServletRequest request,
 			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		logger.info("retrieve_password.jspx1111111---------- " );
 		Response resp = new Response(request, response, modelMap);
 		List<String> messages = resp.getMessages();
 		if (!Validations.notEmpty(key, messages, "key")) {
@@ -213,6 +245,7 @@ public class RegisterController {
 	public String retrievePasswordSubmit(String key, String password,
 			HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
+		logger.info("retrieve_password.jspx22222222222---------- " );
 		Response resp = new Response(request, response, modelMap);
 		List<String> messages = resp.getMessages();
 		if (!Validations.notEmpty(key, messages, "key")) {
@@ -256,6 +289,9 @@ public class RegisterController {
 			Response resp, GlobalRegister reg, String captcha, String username,
 			String password, String email, String gender) {
 		List<String> messages = resp.getMessages();
+		logger.info("messages--"+messages.size()+"--captcha--"+captcha+"--username--"+username+"--password--"+password+"--email--"+email);
+		
+		request.getSession().setAttribute(request.getSession().getId(), username);
 		if (!Captchas.isValid(captchaService, request, captcha)) {
 			return resp.post(100, "error.captcha");
 		}
@@ -283,6 +319,7 @@ public class RegisterController {
 			return resp.post(403);
 		}
 		if (!Validations.notEmpty(password, messages, "password")) {
+			logger.info("------操作失败");
 			return resp.post(404);
 		}
 		if (reg.getVerifyMode() == GlobalRegister.VERIFY_MODE_EMAIL
@@ -356,4 +393,8 @@ public class RegisterController {
 	private OrgService orgService;
 	@Autowired
 	private UserService userService;
+	@Autowired
+	private UserStatusService userStatusService;
+		
+	
 }

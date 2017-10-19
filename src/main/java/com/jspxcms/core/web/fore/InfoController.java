@@ -5,6 +5,7 @@ import java.io.IOException;
 import java.io.OutputStream;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -15,6 +16,8 @@ import javax.servlet.http.HttpServletResponse;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.FilenameUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
@@ -33,17 +36,26 @@ import com.jspxcms.core.constant.Constants;
 import com.jspxcms.core.domain.Info;
 import com.jspxcms.core.domain.MemberGroup;
 import com.jspxcms.core.domain.Node;
+import com.jspxcms.core.domain.Order;
 import com.jspxcms.core.domain.Org;
+import com.jspxcms.core.domain.Product;
+import com.jspxcms.core.domain.ProductRecord;
 import com.jspxcms.core.domain.PublishPoint;
 import com.jspxcms.core.domain.ScoreBoard;
 import com.jspxcms.core.domain.ScoreItem;
 import com.jspxcms.core.domain.Site;
 import com.jspxcms.core.domain.User;
+import com.jspxcms.core.domain.UserRecord;
 import com.jspxcms.core.service.InfoBufferService;
 import com.jspxcms.core.service.InfoQueryService;
+import com.jspxcms.core.service.OrderService;
+import com.jspxcms.core.service.ProductService;
+import com.jspxcms.core.service.RecordService;
 import com.jspxcms.core.service.ScoreBoardService;
 import com.jspxcms.core.service.ScoreItemService;
 import com.jspxcms.core.service.SiteService;
+import com.jspxcms.core.service.UserRecordService;
+import com.jspxcms.core.service.UserService;
 import com.jspxcms.core.service.VoteMarkService;
 import com.jspxcms.core.support.Context;
 import com.jspxcms.core.support.ForeContext;
@@ -59,10 +71,12 @@ import com.jspxcms.core.support.TitleText;
  */
 @Controller
 public class InfoController {
+	protected final static Logger logger = LoggerFactory.getLogger(InfoController.class);
 	@RequestMapping("/info/{id:[0-9]+}.jspx")
 	public String info(@PathVariable Integer id,
 			HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
+		logger.info("InfoController---4---"+id);
 		return info(null, id, 1, request, response, modelMap);
 	}
 
@@ -70,6 +84,7 @@ public class InfoController {
 	public String info(@PathVariable Integer id,
 			@PathVariable Integer page, HttpServletRequest request,
 			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		logger.info("InfoController---3---"+id);
 		return info(null, id, page, request, response, modelMap);
 	}
 
@@ -77,6 +92,7 @@ public class InfoController {
 	public String info(@PathVariable String siteNumber,
 			@PathVariable Integer id, HttpServletRequest request,
 			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		logger.info("InfoController---2---"+id);
 		return info(siteNumber, id, 1, request, response, modelMap);
 	}
 
@@ -86,6 +102,9 @@ public class InfoController {
 			@PathVariable Integer id, @PathVariable Integer page,
 			HttpServletRequest request, HttpServletResponse response,
 			org.springframework.ui.Model modelMap) {
+		logger.info("InfoController---1---"+id);
+		User userfore = Context.getCurrentUser();
+		logger.info("InfoController---userfore---"+userfore);
 		Info info = query.get(id);
 		siteResolver.resolveSite(siteNumber, info);
 		Response resp = new Response(request, response, modelMap);
@@ -117,19 +136,170 @@ public class InfoController {
 		modelMap.addAttribute("node", node);
 		modelMap.addAttribute("title", title);
 		modelMap.addAttribute("text", text);
-
+		
+		logger.info("userfore------"+userfore);	
+		
+		if(userfore==null){
+			User temp = new User();
+			temp.setId(-1);
+			temp.setYuanBao(0);
+			temp.setMemStatus(1);
+			modelMap.addAttribute("userfore", temp);
+		}else{
+			if(info.getTemplate().equals("/1/default/info_news.html")){
+				
+				int record = userRecordService.findRecordByUserAndInfo(userfore.getId(), id);
+				logger.info("info_news----------info id---"+id+"--user id --"+userfore.getId()+"--record--"+record);
+				if(record==0){
+					UserRecord userRecord = new UserRecord();
+					userRecord.setInfoId(id);
+					userRecord.setUserId(userfore.getId());
+					userRecord.setRecordDate(new Date());
+					userRecordService.save(userRecord);
+					userfore.setYuanBao(userfore.getYuanBao()+3);
+					userService.updateUserOnly(userfore);
+				}
+			}
+			modelMap.addAttribute("userfore", userfore);
+		}
+		
+		int infoPeriod = 1;
+//		if(info.getTemplate().contains("info_product.html")){
+//			logger.info("info.getTemplate()------"+info.getTemplate());	
+//			//商品申请记录数
+//			int recordCount = recordService.findCountByInfoId(info.getId());
+//			logger.info("recordCount------"+recordCount);	
+//			if(recordCount>0){
+//				//当前期
+//				infoPeriod = recordService.findPeriodByInfoId(info.getId());
+//				int  stock = Integer.valueOf(info.getCustomsValueNew("stock"));//库存
+//				if(stock>0){
+//					int  periodCount = Integer.valueOf(info.getCustomsValueNew("periodCount"));//每期申请数
+//					int crecordCount = recordService.findCountByInfoIdAndPeriod(id,infoPeriod);//当期申请数
+//					if(crecordCount==periodCount){//当期已经申请满
+//						infoPeriod = infoPeriod + 1;
+//					}
+//				}
+//				logger.info("infoPeriod------"+infoPeriod);	
+//			}
+//		}
+		modelMap.addAttribute("infoPeriod", infoPeriod);
 		Page<String> pagedList = new PageImpl<String>(Arrays.asList(text),
 				new PageRequest(page - 1, 1), textList.size());
 		Map<String, Object> data = modelMap.asMap();
 		ForeContext.setData(data, request);
 		ForeContext.setPage(data, page, info, pagedList);
-
+		logger.info("InfoController------"+pagedList);
 		String template = Servlets.getParam(request, "template");
+		logger.info("InfoController---smallImage---"+info.getCustomsValueNew("smallImage"));
+		logger.info("InfoController---front---template---"+info.getTemplate());
 		if (StringUtils.isNotBlank(template)) {
 			return template;
 		} else {
 			return info.getTemplate();
 		}
+	}
+	@RequestMapping("/viewvideo.jspx")
+	public void viewvideo(Integer id, HttpServletRequest request,String type,
+			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		viewvideo(null,id, request, type,response, modelMap);
+	}
+	@RequestMapping(Constants.SITE_PREFIX_PATH + "/viewvideo.jspx")
+	public void viewvideo(@PathVariable String siteNumber, Integer id,HttpServletRequest request,String type,
+			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		try {
+			
+			User userfore = Context.getCurrentUser();
+			if(userfore!=null){
+				
+				int record = userRecordService.findRecordByUserAndVideo(userfore.getId(), id,type);
+				logger.info("viewvideo----------info id---"+id+"--user id --"+userfore.getId()+"--record--"+record);
+				if(record==0){
+					UserRecord userRecord = new UserRecord();
+					userRecord.setInfoId(id);
+					userRecord.setUserId(userfore.getId());
+					userRecord.setRecordDate(new Date());
+					userRecord.setType(type);
+					userRecordService.save(userRecord);
+					userfore.setYuanBao(userfore.getYuanBao()+4);
+					userService.updateUserOnly(userfore);
+					Servlets.writeHtml(response,"领取成功!" );
+				}else{
+					Servlets.writeHtml(response,"您已经进行领取，请不要重复领取!" );
+				}
+			}else{
+				Servlets.writeHtml(response,"请登陆后进行领取!" );
+			}
+		} catch (Exception e) {
+			logger.error("viewvideo----------"+e.toString());
+			Servlets.writeHtml(response,"服务器异常，请联系管理员" );
+		}
+		
+	}
+
+	@RequestMapping("/freeget.jspx")
+	public void freeget(Integer id, Integer infoPeriod, HttpServletRequest request,
+			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		freeget(null, id, infoPeriod, request, response, modelMap);
+	}
+	
+	@RequestMapping(Constants.SITE_PREFIX_PATH + "/freeget.jspx")
+	public void freeget(@PathVariable String siteNumber, Integer id,
+			Integer infoPeriod, HttpServletRequest request,
+			HttpServletResponse response, org.springframework.ui.Model modelMap) {
+		try {
+//			Info info = query.get(id);
+			Product product = productService.get(id);
+			int  periodCount = Integer.valueOf(product.getPeriodCount());//每期申请数
+			int  stock = Integer.valueOf(product.getStock());//库存
+			int recordCount = recordService.findCountByInfoIdAndPeriod(id,infoPeriod);//当期期申请数
+			User userfore = Context.getCurrentUser();
+			if(stock==0){//无库存
+				Servlets.writeHtml(response,"商品已被全部领取，请等待补充库存后领取!" );
+			}else if(userfore.getYuanBao()<100){
+				Servlets.writeHtml(response,"本次领取需要100元宝，您元宝数目不够，不能进行领取!" );
+			}
+			else{
+				
+				ProductRecord bean = new ProductRecord();
+				bean.setAddDate(new Date());
+				bean.setInfoId(id);
+				bean.setInfoPeriod(infoPeriod);
+				bean.setPeriodNo(recordCount+1);
+				bean.setUserId(userfore.getId());
+				if(recordCount==periodCount){//当期领取完毕
+					Servlets.writeHtml(response,"当期商品已被全部领取，请进行下一期领取!" );
+				}else if(recordCount+1==periodCount){//当期最后一个领取
+					bean = recordService.save(bean);
+					Order order = new Order();
+					int orderprono = 1+(int)(Math.random()*periodCount);//幸运序列
+					int  luckuser= recordService.findByProInFo(orderprono,id,infoPeriod);
+					StringBuffer orderNo = new StringBuffer();
+					for(int i=0;i<8;i++){
+						orderNo.append((1+(int)(Math.random()*9)));
+					}
+					order.setInfoId(id);
+					order.setInfoPeriod(infoPeriod);
+					order.setUserId(luckuser);
+					order.setOrderDate(new Date());
+					order.setStatus(1);
+					order.setPeriodNo(orderprono);
+					order.setOrderNo(orderNo.toString());
+					order = orderService.save(order);
+					Servlets.writeHtml(response,"恭喜您领取成功!" );
+				}else{//当期其它时间领取
+					bean = recordService.save(bean);
+					Servlets.writeHtml(response,"恭喜您领取成功!" );
+				}
+			}
+			
+			
+		} catch (Exception e) {
+			e.printStackTrace();
+			logger.error("freeget----------"+e.toString());
+			Servlets.writeHtml(response,"服务器异常，请联系管理员" );
+		}
+		
 	}
 
 	@RequestMapping("/info_download.jspx")
@@ -409,6 +579,7 @@ public class InfoController {
 		String result = String.valueOf(score);
 		Servlets.writeHtml(response, result);
 	}
+	
 
 	@RequestMapping("/info_score/{id:[0-9]+}.jspx")
 	public void score(@PathVariable Integer id, HttpServletRequest request,
@@ -431,6 +602,8 @@ public class InfoController {
 		String result = mapper.toJson(map);
 		Servlets.writeHtml(response, result);
 	}
+	
+	
 
 	@Autowired
 	private SiteResolver siteResolver;
@@ -450,4 +623,15 @@ public class InfoController {
 	private InfoBufferService infoBufferService;
 	@Autowired
 	private PathResolver pathResolver;
+	@Autowired
+	private RecordService recordService;
+	@Autowired
+	private UserRecordService userRecordService;
+	@Autowired
+	private OrderService orderService;
+	@Autowired
+	private UserService userService;
+	@Autowired
+	private ProductService productService;
+	
 }

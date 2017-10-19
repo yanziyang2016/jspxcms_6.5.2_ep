@@ -7,6 +7,8 @@ import java.util.Map;
 import javax.servlet.http.HttpServletRequest;
 
 import org.apache.commons.lang3.StringUtils;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageImpl;
 import org.springframework.web.util.UrlPathHelper;
@@ -83,6 +85,7 @@ public abstract class ForeContext {
 	 * 分页对象
 	 */
 	public static final String PAGED_LIST = "pagedList";
+	protected final static Logger logger = LoggerFactory.getLogger(ForeContext.class);
 
 	public static void setData(Map<String, Object> data, Site site, User user,
 			MemberGroup group, Collection<MemberGroup> groups, Org org,
@@ -104,18 +107,22 @@ public abstract class ForeContext {
 		data.put(SITE, site);
 		data.put(GLOBAL, site.getGlobal());
 		data.put(Freemarkers.URL, url);
+		logger.info("ForeContext  data---- "+data.toString());
 	}
 
 	public static void setData(Map<String, Object> data,
 			HttpServletRequest request) {
+		
 		String jsessionid = request.getSession().getId();
 		String url = getCurrentUrl(request);
+		logger.info("ForeContext  url---- "+url);
 		User user = Context.getCurrentUser();
 		Site site = Context.getCurrentSite();
 		MemberGroup group = Context.getCurrentGroup(request);
 		Collection<MemberGroup> groups = Context.getCurrentGroups(request);
 		Org org = Context.getCurrentOrg(request);
 		Collection<Org> orgs = Context.getCurrentOrgs(request);
+		
 		setData(data, site, user, group, groups, org, orgs, jsessionid, url);
 	}
 
@@ -131,6 +138,7 @@ public abstract class ForeContext {
 		if (pagedList != null) {
 			data.put(PAGED_LIST, pagedList);
 		}
+		logger.info("pagedList--------"+pagedList);
 	}
 
 	public static void setPage(Map<String, Object> data, Integer page,

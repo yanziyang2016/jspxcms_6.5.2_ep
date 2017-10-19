@@ -1,5 +1,8 @@
 package com.jspxcms.core.security;
 
+import java.util.Date;
+import java.util.List;
+
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
@@ -23,9 +26,11 @@ import com.jspxcms.common.web.Servlets;
 import com.jspxcms.core.constant.Constants;
 import com.jspxcms.core.domain.Global;
 import com.jspxcms.core.domain.User;
+import com.jspxcms.core.domain.UserStatus;
 import com.jspxcms.core.service.GlobalShiroService;
 import com.jspxcms.core.service.OperationLogService;
 import com.jspxcms.core.service.UserShiroService;
+import com.jspxcms.core.service.UserStatusService;
 import com.octo.captcha.service.CaptchaService;
 
 /**
@@ -63,11 +68,14 @@ public class CmsAuthenticationFilter extends FormAuthenticationFilter {
 	protected boolean executeLogin(ServletRequest request,
 			ServletResponse response) throws Exception {
 		AuthenticationToken token = createToken(request, response);
+		logger.info("---------------");
 		if (token == null) {
 			String msg = "createToken method implementation returned null. A valid non-null AuthenticationToken "
 					+ "must be created in order to execute a login attempt.";
 			throw new IllegalStateException(msg);
 		}
+		
+		
 		String username = (String) token.getPrincipal();
 		User user = userShiroService.findByUsername(username);
 		HttpServletRequest hsr = (HttpServletRequest) request;
@@ -101,6 +109,28 @@ public class CmsAuthenticationFilter extends FormAuthenticationFilter {
 			hsr.getSession().setAttribute(WebUtils.SAVED_REQUEST_KEY,
 					savedRequest);
 			logService.loginSuccess(ip, user.getId());
+			String macAddress = ((HttpServletRequest) request).getHeader("User-Agent")+ request.getRemoteAddr();
+			UserStatus userStatus = userStatusService.getByMacAddress(macAddress);
+			if(userStatus == null){
+				userStatus = new UserStatus();
+				userStatus.setLastDate(new Date());
+				userStatus.setMacAddress(macAddress);
+				userStatus.setStatus(1);
+				userStatus.setUserId(user.getId());
+				userStatus.setUserName(user.getUsername());
+				userStatusService.save(userStatus);
+			}else{
+				userStatus.setStatus(1);
+				userStatus.setUserId(user.getId());
+				userStatus.setUserName(user.getUsername());
+				userStatus.setLastDate(new Date());
+				userStatusService.save(userStatus);
+			}
+			RedisHelperTest redisHelper = new RedisHelperTest();
+	        redisHelper.addr = "182.92.7.57";
+	        redisHelper.port = "6379";
+	        redisHelper.auth = "test123";
+			redisHelper.set(userStatus.getUserId().toString(),((HttpServletRequest) request).getSession().getId());
 			return onLoginSuccess(token, subject, request, response);
 		} catch (AuthenticationException e) {
 			Object cred = token.getCredentials();
@@ -121,6 +151,8 @@ public class CmsAuthenticationFilter extends FormAuthenticationFilter {
 	@Override
 	public boolean onPreHandle(ServletRequest request,
 			ServletResponse response, Object mappedValue) throws Exception {
+		logger.info("((HttpServletRequest) request).getRequestURL()-----"+((HttpServletRequest) request).getRequestURL());
+		StringBuffer url = ((HttpServletRequest) request).getRequestURL();
 		boolean isAllowed = isAccessAllowed(request, response, mappedValue);
 		if (isAllowed && isLoginRequest(request, response)) {
 			try {
@@ -180,10 +212,12 @@ public class CmsAuthenticationFilter extends FormAuthenticationFilter {
 		HttpServletRequest request = (HttpServletRequest) req;
 		HttpServletResponse response = (HttpServletResponse) resp;
 		String successUrl = request.getParameter(FALLBACK_URL_PARAM);
+		logger.info("successUrl--"+successUrl);
 		if (StringUtils.isNotBlank(successUrl)) {
 			WebUtils.issueRedirect(request, response, successUrl, null, false);
 			return;
 		}
+		logger.info("2222222222222--"+request.getRequestURI());
 		if (request.getRequestURI().startsWith(
 				request.getContextPath() + backUrl)) {
 			// 后台直接返回首页
@@ -231,6 +265,15 @@ public class CmsAuthenticationFilter extends FormAuthenticationFilter {
 	private UserShiroService userShiroService;
 	private OperationLogService logService;
 	private GlobalShiroService globalShiroService;
+	private UserStatusService userStatusService;	
+
+	public UserStatusService getUserStatusService() {
+		return userStatusService;
+	}
+	@Autowired
+	public void setUserStatusService(UserStatusService userStatusService) {
+		this.userStatusService = userStatusService;
+	}
 
 	@Autowired
 	public void setCaptchaService(CaptchaService captchaService) {

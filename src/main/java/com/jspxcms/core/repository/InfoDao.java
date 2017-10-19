@@ -78,5 +78,9 @@ public interface InfoDao extends Repository<Info, Integer>, InfoDaoPlus {
 	@Query("select count(*) from Info bean where bean.site.id in (?1) and bean.status!='"
 			+ Info.DELETED + "'")
 	public long countBySiteIdNotDeleted(Collection<Integer> siteIds);
+	@Query("from Info bean where bean.video_id = ?1 ")
+	public Info getByVideoId(Integer id);
+	@Query("from Info bean where bean.product_id = ?1 ")
+	public Info getByProductId(Integer id);
 
 }

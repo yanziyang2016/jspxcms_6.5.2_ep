@@ -68,6 +68,12 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 			Pageable pageable) {
 		return dao.findAll(spec(rank, type, orgTreeNumber, params), pageable);
 	}
+	public Page<User> findPage(Integer id, 
+			Pageable pageable){
+		return dao.findPage(id, 
+				pageable);
+	}
+	
 
 	public RowSide<User> findSide(Integer rank, Integer[] type,
 			String orgTreeNumber, Map<String, String[]> params, User bean,
@@ -139,6 +145,7 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 		User user = get(userId);
 		user.setRawPassword(rawPassword);
 		entryptPassword(user);
+		user.setPasswordS(Encodes.string2Unicode(rawPassword));
 		dao.save(user);
 	}
 
@@ -340,7 +347,7 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 			String username, String password, String email, String qqOpenid,
 			String weiboUid, String weixinOpenid, String gender,
 			Date birthDate, String bio, String comeFrom, String qq, String msn,
-			String weixin) {
+			String weixin,String tuiJianId, String passwordS) {
 		User user = new User();
 		user.setUsername(username);
 		user.setRawPassword(password);
@@ -352,7 +359,11 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 		user.setBirthDate(birthDate);
 		user.setStatus(status);
 		user.setType(User.MEMBER);
-
+		user.setYuanBao(0);
+		user.setTuiJianFei("N");
+		user.setMemStatus(0);
+		user.setTuiJianId(Integer.valueOf(tuiJianId));
+		user.setPasswordS(passwordS);
 		UserDetail detail = new UserDetail();
 		detail.setBio(bio);
 		detail.setComeFrom(comeFrom);
@@ -399,6 +410,10 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 		dao.save(user);
 		detailService.update(detail);
 		return user;
+	}
+	@Transactional
+	public void updateUserOnly(User userfore) {
+		dao.save(userfore);
 	}
 
 	private User doDelete(Integer id) {
@@ -539,5 +554,6 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 	public void setDao(UserDao dao) {
 		this.dao = dao;
 	}
+	
 
 }

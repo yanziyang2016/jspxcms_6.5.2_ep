@@ -138,7 +138,7 @@ public class OAuthRegisterController {
 		}
 		userService.register(ip, groupId, orgId, status, username, password,
 				email, qqOpenid, weiboUid, weixinOpenid, gender, birthDate,
-				bio, comeFrom, qq, msn, weixin);
+				bio, comeFrom, qq, msn, weixin,"0",password);
 		return "redirect:/oauth/authc/" + token.getProvider() + "/session.jspx";
 	}
 

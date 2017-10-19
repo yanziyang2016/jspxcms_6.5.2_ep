@@ -1,5 +1,7 @@
 package com.jspxcms.core.security;
 
+import java.util.Date;
+
 import javax.servlet.ServletRequest;
 import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
@@ -7,11 +9,16 @@ import javax.servlet.http.HttpServletRequest;
 import org.apache.commons.lang3.StringUtils;
 import org.apache.shiro.subject.Subject;
 import org.apache.shiro.web.filter.authc.LogoutFilter;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 
 import com.jspxcms.common.web.Servlets;
 import com.jspxcms.core.constant.Constants;
+import com.jspxcms.core.domain.UserStatus;
 import com.jspxcms.core.service.OperationLogService;
+import com.jspxcms.core.service.UserStatusService;
+import com.jspxcms.core.support.LocalMac;
 
 public class CmsLogoutFilter extends LogoutFilter {
 	/**
@@ -23,15 +30,36 @@ public class CmsLogoutFilter extends LogoutFilter {
 	 */
 	private String backUrl = Constants.CMSCP + "/";
 	private String backRedirectUrl = Constants.BACK_SUCCESS_URL;
+	
+	private Logger logger = LoggerFactory
+			.getLogger(CmsLogoutFilter.class);
+	private UserStatusService userStatusService;	
+	
+	@Autowired
+	public void setUserStatusService(UserStatusService userStatusService) {
+		this.userStatusService = userStatusService;
+	}
 
 	@Override
 	protected boolean preHandle(ServletRequest request, ServletResponse response)
 			throws Exception {
+		RedisHelperTest redisHelper = new RedisHelperTest();
+        redisHelper.addr = "182.92.7.57";
+        redisHelper.port = "6379";
+        redisHelper.auth = "test123";
 		Subject subject = getSubject(request, response);
 		Object principal = subject.getPrincipal();
 		String ip = Servlets.getRemoteAddr(request);
 		boolean result = super.preHandle(request, response);
-
+		String macAddress = ((HttpServletRequest) request).getHeader("User-Agent")+ request.getRemoteAddr();
+		logger.info("macAddress---------------");
+		UserStatus userStatus = userStatusService.getByMacAddress(macAddress);
+		if(userStatus!=null){
+			userStatus.setStatus(2);
+			userStatus.setLastDate(new Date());
+			userStatusService.save(userStatus);
+		}
+		redisHelper.set(userStatus.getUserId().toString(), "");
 		if (principal != null) {
 			logService.logout(ip, principal.toString());
 		}
@@ -76,3 +104,4 @@ public class CmsLogoutFilter extends LogoutFilter {
 		this.logService = logService;
 	}
 }
+
