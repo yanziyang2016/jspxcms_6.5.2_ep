@@ -174,7 +174,7 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 		subject = GlobalRegister.replaceVerifyEmail(subject, username,
 				sitename, url);
 		text = GlobalRegister.replaceVerifyEmail(text, username, sitename, url);
-		mail.sendMail(new String[] { email }, subject, text);
+//		mail.sendMail(new String[] { email }, subject, text);
 	}
 
 	@Transactional
@@ -211,7 +211,7 @@ public class UserServiceImpl implements UserService, OrgDeleteListener,
 				sitename, url);
 		text = GlobalRegister.replacePasswordEmail(text, username, sitename,
 				url);
-		mail.sendMail(new String[] { email }, subject, text);
+//		mail.sendMail(new String[] { email }, subject, text);
 	}
 
 	@Transactional
